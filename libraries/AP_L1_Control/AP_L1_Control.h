@@ -1,4 +1,5 @@
 // -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
+#pragma once
 
 /// @file    AP_L1_Control.h
 /// @brief   L1 Control algorithm. This is a instance of an
@@ -13,13 +14,10 @@
  *  - Ability to use loiter radius smaller than L1 length
  */
 
-#ifndef AP_L1_CONTROL_H
-#define AP_L1_CONTROL_H
-
-#include <AP_Math.h>
-#include <AP_AHRS.h>
-#include <AP_Param.h>
-#include <AP_Navigation.h>
+#include <AP_Math/AP_Math.h>
+#include <AP_AHRS/AP_AHRS.h>
+#include <AP_Param/AP_Param.h>
+#include <AP_Navigation/AP_Navigation.h>
 
 class AP_L1_Control : public AP_Navigation {
 public:
@@ -40,7 +38,8 @@ public:
 	// return the heading error angle (centi-degrees) +ve to left of track
 	int32_t bearing_error_cd(void) const;
 
-	float crosstrack_error(void) const;
+    float crosstrack_error(void) const { return _crosstrack_error; }
+    float crosstrack_error_integrator(void) const { return _L1_xtrack_i; }
 
 	int32_t target_bearing_cd(void) const;
 	float turn_distance(float wp_radius) const;
@@ -53,9 +52,14 @@ public:
 
     // set the default NAVL1_PERIOD
     void set_default_period(float period) {
-        if (!_L1_period.load()) {
-            _L1_period.set(period);
-        }
+        _L1_period.set_default(period);
+    }
+
+    void set_data_is_stale(void)  {
+        _data_is_stale = true;
+    }
+    bool data_is_stale(void) const {
+        return _data_is_stale;
     }
 
 	// this supports the NAVl1_* user settable parameters
@@ -95,12 +99,14 @@ private:
     // previous value of cross-track velocity
     float _last_Nu;
 
-    // direction of last xtrack velocity - true positive
-    bool _xtrackVelPos;
-
     // prevent indecision in waypoint tracking
     void _prevent_indecision(float &Nu);
+
+    // integral feedback to correct crosstrack error. Used to ensure xtrack converges to zero.
+    // For tuning purposes it's helpful to clear the integrator when it changes so a _prev is used
+    float _L1_xtrack_i = 0;
+    AP_Float _L1_xtrack_i_gain;
+    float _L1_xtrack_i_gain_prev = 0;
+    uint32_t _last_update_waypoint_us;
+    bool _data_is_stale = true;
 };
-
-
-#endif //AP_L1_CONTROL_H
